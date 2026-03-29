@@ -4,6 +4,9 @@ import { writeFile, mkdir } from "fs/promises"
 import path from "path"
 import { existsSync } from "fs"
 
+const UPLOAD_DIR =
+  process.env.UPLOAD_DIR ?? path.join(process.cwd(), "data", "uploads")
+
 export async function GET() {
   try {
     const images = getImages()
@@ -23,22 +26,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing image or title" }, { status: 400 })
     }
 
-    const uploadDir = path.join(process.cwd(), "data", "uploads")
-    if (!existsSync(uploadDir)) {
-      await mkdir(uploadDir, { recursive: true })
+    if (!existsSync(UPLOAD_DIR)) {
+      await mkdir(UPLOAD_DIR, { recursive: true })
     }
 
     const ext = file.name.split(".").pop() ?? "jpg"
     const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-    const filepath = path.join(uploadDir, filename)
+    const filepath = path.join(UPLOAD_DIR, filename)
 
     const bytes = await file.arrayBuffer()
     await writeFile(filepath, Buffer.from(bytes))
 
-    const image = addImage(title, `/uploads/${filename}`, filename)
+    const image = addImage(title, filename)
     return NextResponse.json(image, { status: 201 })
   } catch (err) {
-    console.error("[v0] POST /api/images error:", err)
+    console.error("[api] POST /api/images error:", err)
     return NextResponse.json({ error: "Upload failed" }, { status: 500 })
   }
 }

@@ -1,67 +1,85 @@
-/**
- * Lightweight file-based image store for the portfolio viewer.
- * In the Docker/production deployment this module can be replaced with
- * a better-sqlite3 implementation while keeping the same exported API.
- */
-
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs"
+import Database from "better-sqlite3"
 import path from "path"
+import { mkdirSync } from "fs"
 
-interface ImageRecord {
+export interface ImageRecord {
   id: number
-  title: string
-  url: string
-  filename: string | null
+  filename: string
+  title: string | null
+  sort_order: number
   created_at: string
+  url: string
 }
 
-const DATA_DIR = path.join(process.cwd(), "data")
-const DB_FILE = path.join(DATA_DIR, "images.json")
+const DB_PATH =
+  process.env.DB_PATH ?? path.join(process.cwd(), "data", "portfolio.db")
 
-function ensureDb(): ImageRecord[] {
-  if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true })
-  if (!existsSync(DB_FILE)) {
-    writeFileSync(DB_FILE, JSON.stringify([]), "utf-8")
-    return []
-  }
-  try {
-    return JSON.parse(readFileSync(DB_FILE, "utf-8")) as ImageRecord[]
-  } catch {
-    return []
-  }
+function getDb() {
+  mkdirSync(path.dirname(DB_PATH), { recursive: true })
+  const db = new Database(DB_PATH)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS images (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      filename   TEXT NOT NULL,
+      title      TEXT,
+      sort_order INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `)
+  return db
 }
 
-function saveDb(records: ImageRecord[]) {
-  if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true })
-  writeFileSync(DB_FILE, JSON.stringify(records, null, 2), "utf-8")
+function toRecord(row: Omit<ImageRecord, "url">): ImageRecord {
+  return { ...row, url: `/uploads/${row.filename}` }
 }
 
 export function getImages(): ImageRecord[] {
-  return ensureDb().sort(
-    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-  )
+  const db = getDb()
+  const rows = db
+    .prepare("SELECT * FROM images ORDER BY sort_order ASC, id ASC")
+    .all() as Omit<ImageRecord, "url">[]
+  db.close()
+  return rows.map(toRecord)
 }
 
 export function getImageById(id: number): ImageRecord | undefined {
-  return ensureDb().find((r) => r.id === id)
+  const db = getDb()
+  const row = db
+    .prepare("SELECT * FROM images WHERE id = ?")
+    .get(id) as Omit<ImageRecord, "url"> | undefined
+  db.close()
+  return row ? toRecord(row) : undefined
 }
 
-export function addImage(title: string, url: string, filename: string | null): ImageRecord {
-  const records = ensureDb()
-  const newId = records.length > 0 ? Math.max(...records.map((r) => r.id)) + 1 : 1
-  const record: ImageRecord = {
-    id: newId,
-    title,
-    url,
-    filename,
-    created_at: new Date().toISOString(),
-  }
-  records.push(record)
-  saveDb(records)
-  return record
+export function addImage(title: string, filename: string): ImageRecord {
+  const db = getDb()
+  const maxRow = db
+    .prepare("SELECT COALESCE(MAX(sort_order), -1) AS max FROM images")
+    .get() as { max: number }
+  const sort_order = maxRow.max + 1
+  const result = db
+    .prepare(
+      "INSERT INTO images (filename, title, sort_order) VALUES (?, ?, ?)"
+    )
+    .run(filename, title, sort_order)
+  const row = db
+    .prepare("SELECT * FROM images WHERE id = ?")
+    .get(result.lastInsertRowid) as Omit<ImageRecord, "url">
+  db.close()
+  return toRecord(row)
 }
 
 export function deleteImage(id: number): void {
-  const records = ensureDb().filter((r) => r.id !== id)
-  saveDb(records)
+  const db = getDb()
+  db.prepare("DELETE FROM images WHERE id = ?").run(id)
+  db.close()
+}
+
+export function updateSortOrder(id: number, sort_order: number): void {
+  const db = getDb()
+  db.prepare("UPDATE images SET sort_order = ? WHERE id = ?").run(
+    sort_order,
+    id
+  )
+  db.close()
 }
