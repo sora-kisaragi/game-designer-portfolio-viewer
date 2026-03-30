@@ -6,7 +6,7 @@
 - 作業は必ず `main` から feature ブランチを切って行う
 - ブランチ名は `feature/xxx`, `fix/xxx`, `chore/xxx` の形式
 
-```text
+```
 main
  └── feature/add-sorting-ui   ← 作業ブランチ
  └── fix/upload-error
@@ -33,38 +33,22 @@ git branch -d feature/xxx
 
 ## コミットメッセージ規約（Conventional Commits）
 
-```text
+```
 <type>: <概要>
 ```
 
-| type       | 用途                     |
-| ---------- | ------------------------ |
-| `feat`     | 新機能                   |
-| `fix`      | バグ修正                 |
-| `chore`    | 依存更新・設定変更       |
+| type | 用途 |
+|---|---|
+| `feat` | 新機能 |
+| `fix` | バグ修正 |
+| `chore` | 依存更新・設定変更 |
 | `refactor` | 動作を変えないリファクタ |
-| `docs`     | ドキュメントのみの変更   |
+| `docs` | ドキュメントのみの変更 |
 
 ## main への直接プッシュ禁止
 
 - 緊急の小修正を除き、必ず PR 経由でマージする
 - セルフマージは可（1人運用のため）
-
-## PR の作成・マージ
-
-- PR の作成・マージはユーザーが `gh` コマンドで行う
-- Claude は `gh pr create` を実行しない（提案のみ）
-- PR 本文のフォーマット:
-
-```markdown
-## Summary
-- 変更内容の箇条書き
-
-## Test plan
-- [ ] 確認項目
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-```
 
 ## デプロイ
 
