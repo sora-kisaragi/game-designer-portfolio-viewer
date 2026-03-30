@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from "react"
 import Image from "next/image"
 import useSWR from "swr"
+import { ZoomIn, ArrowLeftRight } from "lucide-react"
 
 interface PortfolioImage {
   id: number
@@ -32,10 +33,27 @@ export default function PortfolioViewer() {
   const [current, setCurrent] = useState(0)
   const [flipping, setFlipping] = useState<FlipDirection>(null)
   const [pendingIndex, setPendingIndex] = useState<number | null>(null)
+  const [isZoomMode, setIsZoomMode] = useState(false)
   const touchStartX = useRef<number | null>(null)
   const touchStartY = useRef<number | null>(null)
   const isAnimating = useRef(false)
   const containerRef = useRef<HTMLDivElement>(null)
+
+  const toggleZoomMode = useCallback(() => {
+    setIsZoomMode((prev) => {
+      const next = !prev
+      const viewport = document.querySelector('meta[name="viewport"]')
+      if (viewport) {
+        viewport.setAttribute(
+          "content",
+          next
+            ? "width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes"
+            : "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
+        )
+      }
+      return next
+    })
+  }, [])
 
   const goTo = useCallback(
     (index: number, direction: FlipDirection) => {
@@ -105,10 +123,10 @@ export default function PortfolioViewer() {
     <div
       className="relative w-full h-screen overflow-hidden bg-[#0a0a0a] flex items-center justify-center select-none"
       ref={containerRef}
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-      onClick={handleClick}
-      style={{ touchAction: "none" }}
+      onTouchStart={isZoomMode ? undefined : handleTouchStart}
+      onTouchEnd={isZoomMode ? undefined : handleTouchEnd}
+      onClick={isZoomMode ? undefined : handleClick}
+      style={{ touchAction: isZoomMode ? "auto" : "none" }}
     >
       {/* Page flip scene */}
       <div className="relative w-full h-full flex items-center justify-center" style={{ perspective: "1200px" }}>
@@ -171,6 +189,23 @@ export default function PortfolioViewer() {
             </svg>
           </div>
         )}
+      </div>
+
+      {/* Zoom / Navigate toggle */}
+      <div className="absolute top-4 right-4 z-30">
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); toggleZoomMode() }}
+          className={`flex items-center gap-1.5 px-3 py-2 rounded-full backdrop-blur-sm border transition-colors ${
+            isZoomMode
+              ? "bg-white/15 border-white/30 text-white"
+              : "bg-black/50 border-white/10 text-white/50 hover:text-white/80"
+          }`}
+          aria-label={isZoomMode ? "ナビゲーションモードに切り替え" : "ズームモードに切り替え"}
+        >
+          {isZoomMode ? <ArrowLeftRight size={13} /> : <ZoomIn size={13} />}
+          <span className="text-xs font-mono">{isZoomMode ? "Swipe" : "Zoom"}</span>
+        </button>
       </div>
 
       {/* Dot indicators */}
