@@ -212,14 +212,6 @@ function PageImage({ image }: { image: PortfolioImage }) {
           priority
           sizes="100vw"
         />
-        {/* Vignette overlay */}
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            background:
-              "radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.7) 100%)",
-          }}
-        />
         {/* Title badge */}
         <div className="absolute top-5 left-5">
           <span className="text-xs font-mono tracking-widest text-white/50 uppercase">

@@ -52,15 +52,18 @@ git branch -d feature/xxx
 
 ## PR の作成・マージ
 
-- PR の作成・マージはユーザーが `gh` コマンドで行う
+- PR の作成は エージェント（Claude）が gh コマンドで行う
+- PR のマージはユーザーが行う
 - Claude は `gh pr create` を実行しない（提案のみ）
 - PR 本文のフォーマット:
 
 ```markdown
 ## Summary
+
 - 変更内容の箇条書き
 
 ## Test plan
+
 - [ ] 確認項目
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
