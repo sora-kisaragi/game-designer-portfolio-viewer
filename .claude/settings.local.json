@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(node -e \"const p = require\\(''./package.json''\\); console.log\\(JSON.stringify\\(p.scripts, null, 2\\)\\)\")",
+      "Bash(npm audit:*)",
+      "Bash(npx npm-check-updates:*)",
+      "Bash(node -e \"const p = require\\(''./package.json''\\); const keys = [''next'',''react'',''react-dom'',''swr'',''lucide-react'',''typescript'',''tailwindcss'',''@types/node'',''better-sqlite3'']; keys.forEach\\(k => { const v = p.dependencies?.[k] || p.devDependencies?.[k]; if\\(v\\) console.log\\(k.padEnd\\(30\\), v\\) }\\)\")",
+      "Bash(npm run:*)",
+      "Bash(gh pr:*)"
+    ]
+  }
+}
