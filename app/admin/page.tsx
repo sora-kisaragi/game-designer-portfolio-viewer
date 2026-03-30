@@ -3,8 +3,23 @@
 import { useState, useRef } from "react"
 import Image from "next/image"
 import useSWR, { mutate } from "swr"
-import { Trash2, Upload, ImageIcon, ArrowLeft } from "lucide-react"
+import { Trash2, Upload, ImageIcon, ArrowLeft, GripVertical } from "lucide-react"
 import Link from "next/link"
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core"
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from "@dnd-kit/sortable"
+import { CSS } from "@dnd-kit/utilities"
 
 interface PortfolioImage {
   id: number
@@ -24,11 +39,87 @@ const MOCK_IMAGES: PortfolioImage[] = [
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
+// ── Sortable row ─────────────────────────────────────────────────────────────
+
+function SortableImageRow({
+  img,
+  onDelete,
+  deletingId,
+}: {
+  img: PortfolioImage
+  onDelete: (id: number) => void
+  deletingId: number | null
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: img.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center gap-4 bg-white/5 border border-white/10 rounded-lg p-3 group"
+    >
+      {/* Drag handle */}
+      <button
+        type="button"
+        {...attributes}
+        {...listeners}
+        className="shrink-0 w-6 flex items-center justify-center text-white/20 hover:text-white/50 cursor-grab active:cursor-grabbing touch-none"
+        aria-label="Drag to reorder"
+      >
+        <GripVertical size={16} />
+      </button>
+
+      {/* Thumbnail */}
+      <div className="relative shrink-0 w-20 h-[45px] rounded overflow-hidden bg-white/10">
+        <Image
+          src={img.url}
+          alt={img.title}
+          fill
+          className="object-cover"
+          sizes="80px"
+        />
+      </div>
+
+      {/* Info */}
+      <div className="flex-1 min-w-0">
+        <p className="text-sm text-white truncate">{img.title}</p>
+        <p className="text-xs text-white/30 font-mono truncate mt-0.5">
+          ID: {img.id}
+        </p>
+      </div>
+
+      {/* Delete */}
+      <button
+        type="button"
+        onClick={() => onDelete(img.id)}
+        disabled={deletingId === img.id}
+        className="shrink-0 w-9 h-9 rounded-lg flex items-center justify-center text-white/30 hover:text-red-400 hover:bg-red-400/10 transition-colors disabled:opacity-30"
+        aria-label={`Delete ${img.title}`}
+      >
+        <Trash2 size={15} />
+      </button>
+    </div>
+  )
+}
+
+// ── Admin page ────────────────────────────────────────────────────────────────
+
 export default function AdminPage() {
   const { data, isLoading } = useSWR<PortfolioImage[]>("/api/images", fetcher, {
     fallbackData: MOCK_IMAGES,
   })
-  const images = data && data.length > 0 ? data : MOCK_IMAGES
+  const serverImages = data && data.length > 0 ? data : MOCK_IMAGES
+
+  // Local ordering state for optimistic UI
+  const [localImages, setLocalImages] = useState<PortfolioImage[] | null>(null)
+  const images = localImages ?? serverImages
 
   const [title, setTitle] = useState("")
   const [file, setFile] = useState<File | null>(null)
@@ -37,6 +128,10 @@ export default function AdminPage() {
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const sensors = useSensors(useSensor(PointerSensor))
+
+  // ── Upload ──────────────────────────────────────────────────────────────────
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0] ?? null
@@ -64,6 +159,7 @@ export default function AdminPage() {
       setTitle("")
       setFile(null)
       setPreview(null)
+      setLocalImages(null)
       if (fileInputRef.current) fileInputRef.current.value = ""
       mutate("/api/images")
     } catch (err) {
@@ -73,12 +169,15 @@ export default function AdminPage() {
     }
   }
 
+  // ── Delete ──────────────────────────────────────────────────────────────────
+
   const handleDelete = async (id: number) => {
     if (deletingId !== null) return
     setDeletingId(id)
     try {
       const res = await fetch(`/api/images/${id}`, { method: "DELETE" })
       if (!res.ok) throw new Error("Delete failed")
+      setLocalImages(null)
       mutate("/api/images")
     } catch {
       // ignore
@@ -86,6 +185,35 @@ export default function AdminPage() {
       setDeletingId(null)
     }
   }
+
+  // ── Drag end ────────────────────────────────────────────────────────────────
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+
+    const oldIndex = images.findIndex((img) => img.id === active.id)
+    const newIndex = images.findIndex((img) => img.id === over.id)
+    const reordered = arrayMove(images, oldIndex, newIndex)
+
+    // Optimistic update
+    setLocalImages(reordered)
+
+    // Persist new sort_order for all items
+    await Promise.all(
+      reordered.map((img, index) =>
+        fetch(`/api/images/${img.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sort_order: index }),
+        })
+      )
+    )
+
+    mutate("/api/images")
+  }
+
+  // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white">
@@ -113,12 +241,11 @@ export default function AdminPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* File drop zone */}
             <div
-              className="relative border border-dashed border-white/20 rounded-lg overflow-hidden cursor-pointer hover:border-white/40 transition-colors"
+              className="relative border border-dashed border-white/20 rounded-lg overflow-hidden cursor-pointer hover:border-white/40 transition-colors min-h-40"
               onClick={() => fileInputRef.current?.click()}
-              style={{ minHeight: "160px" }}
             >
               {preview ? (
-                <div className="relative w-full" style={{ aspectRatio: "16/9" }}>
+                <div className="relative w-full aspect-video">
                   <Image src={preview} alt="Preview" fill className="object-cover" />
                   <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
                     <span className="text-xs text-white/70 font-mono">Click to change</span>
@@ -136,6 +263,7 @@ export default function AdminPage() {
                 type="file"
                 accept="image/*"
                 className="hidden"
+                aria-label="Select image file"
                 onChange={handleFileChange}
               />
             </div>
@@ -150,8 +278,7 @@ export default function AdminPage() {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Work 07"
-                className="w-full bg-white/5 border border-white/15 rounded-lg px-4 py-3 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-white/40 transition-colors"
-                style={{ fontSize: "16px" }}
+                className="w-full bg-white/5 border border-white/15 rounded-lg px-4 py-3 text-base text-white placeholder:text-white/25 focus:outline-none focus:border-white/40 transition-colors"
               />
             </div>
 
@@ -179,44 +306,27 @@ export default function AdminPage() {
           {isLoading ? (
             <div className="text-white/30 text-sm font-mono">Loading...</div>
           ) : (
-            <div className="space-y-3">
-              {images.map((img) => (
-                <div
-                  key={img.id}
-                  className="flex items-center gap-4 bg-white/5 border border-white/10 rounded-lg p-3 group"
-                >
-                  {/* Thumbnail */}
-                  <div className="relative shrink-0 rounded overflow-hidden bg-white/10"
-                    style={{ width: "80px", height: "45px" }}>
-                    <Image
-                      src={img.url}
-                      alt={img.title}
-                      fill
-                      className="object-cover"
-                      sizes="80px"
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={images.map((img) => img.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="space-y-3">
+                  {images.map((img) => (
+                    <SortableImageRow
+                      key={img.id}
+                      img={img}
+                      onDelete={handleDelete}
+                      deletingId={deletingId}
                     />
-                  </div>
-
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-white truncate">{img.title}</p>
-                    <p className="text-xs text-white/30 font-mono truncate mt-0.5">
-                      ID: {img.id}
-                    </p>
-                  </div>
-
-                  {/* Delete */}
-                  <button
-                    onClick={() => handleDelete(img.id)}
-                    disabled={deletingId === img.id}
-                    className="shrink-0 w-9 h-9 rounded-lg flex items-center justify-center text-white/30 hover:text-red-400 hover:bg-red-400/10 transition-colors disabled:opacity-30"
-                    aria-label={`Delete ${img.title}`}
-                  >
-                    <Trash2 size={15} />
-                  </button>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </SortableContext>
+            </DndContext>
           )}
         </section>
       </main>
