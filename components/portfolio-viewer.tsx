@@ -247,12 +247,7 @@ function PageImage({ image }: { image: PortfolioImage }) {
           priority
           sizes="100vw"
         />
-        {/* Title badge */}
-        <div className="absolute top-5 left-5">
-          <span className="text-xs font-mono tracking-widest text-white/50 uppercase">
-            {image.title}
-          </span>
-        </div>
+
       </div>
     </div>
   )
