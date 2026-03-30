@@ -8,6 +8,8 @@ services:
     environment:
       - DB_PATH=/app/data/portfolio.db
       - UPLOAD_DIR=/app/data/uploads
+      - BASIC_AUTH_USER=${BASIC_AUTH_USER}
+      - BASIC_AUTH_PASSWORD=${BASIC_AUTH_PASSWORD}
     restart: unless-stopped
 
   cloudflared:
