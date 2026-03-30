@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
-import { getImages, addImage } from "@/lib/db"
-import { writeFile, mkdir } from "fs/promises"
+import { getImages, addImage, getImageById, deleteImages } from "@/lib/db"
+import { writeFile, mkdir, unlink } from "fs/promises"
 import path from "path"
 import { existsSync } from "fs"
 
@@ -13,6 +13,31 @@ export async function GET() {
     return NextResponse.json(images)
   } catch {
     return NextResponse.json([], { status: 200 })
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const { ids } = await request.json()
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return NextResponse.json({ error: "Missing ids" }, { status: 400 })
+    }
+
+    for (const id of ids) {
+      const image = getImageById(Number(id))
+      if (image?.filename) {
+        const filepath = path.join(UPLOAD_DIR, image.filename)
+        if (existsSync(filepath)) {
+          await unlink(filepath)
+        }
+      }
+    }
+
+    deleteImages(ids.map(Number))
+    return NextResponse.json({ success: true })
+  } catch (err) {
+    console.error("[api] DELETE /api/images error:", err)
+    return NextResponse.json({ error: "Delete failed" }, { status: 500 })
   }
 }
 

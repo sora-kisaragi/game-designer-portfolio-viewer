@@ -75,6 +75,14 @@ export function deleteImage(id: number): void {
   db.close()
 }
 
+export function deleteImages(ids: number[]): void {
+  if (ids.length === 0) return
+  const db = getDb()
+  const placeholders = ids.map(() => "?").join(",")
+  db.prepare(`DELETE FROM images WHERE id IN (${placeholders})`).run(...ids)
+  db.close()
+}
+
 export function updateSortOrder(id: number, sort_order: number): void {
   const db = getDb()
   db.prepare("UPDATE images SET sort_order = ? WHERE id = ?").run(
