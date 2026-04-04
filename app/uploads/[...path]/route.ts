@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { readFile } from "fs/promises"
-import { existsSync } from "fs"
+import { createReadStream, existsSync, statSync } from "fs"
+import { Readable } from "stream"
 import path from "path"
 
 const MIME: Record<string, string> = {
@@ -10,15 +10,19 @@ const MIME: Record<string, string> = {
   gif: "image/gif",
   webp: "image/webp",
   avif: "image/avif",
+  mp4: "video/mp4",
+  webm: "video/webm",
+  mov: "video/quicktime",
+  avi: "video/x-msvideo",
+  mkv: "video/x-matroska",
 }
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ path: string[] }> }
 ) {
   const { path: segments } = await params
 
-  // Only serve flat filenames — no subdirectory traversal
   if (segments.length !== 1) {
     return new NextResponse(null, { status: 404 })
   }
@@ -34,11 +38,41 @@ export async function GET(
     return new NextResponse(null, { status: 404 })
   }
 
-  const buffer = await readFile(filepath)
   const ext = path.extname(filename).slice(1).toLowerCase()
   const contentType = MIME[ext] ?? "application/octet-stream"
+  const fileSize = statSync(filepath).size
+  const rangeHeader = req.headers.get("range")
 
-  return new NextResponse(buffer, {
-    headers: { "Content-Type": contentType },
+  if (rangeHeader) {
+    const match = rangeHeader.match(/bytes=(\d*)-(\d*)/)
+    if (match) {
+      const start = match[1] ? parseInt(match[1], 10) : 0
+      const end = match[2] ? parseInt(match[2], 10) : fileSize - 1
+      const chunkSize = end - start + 1
+
+      const nodeStream = createReadStream(filepath, { start, end })
+      const webStream = Readable.toWeb(nodeStream) as ReadableStream
+
+      return new NextResponse(webStream, {
+        status: 206,
+        headers: {
+          "Content-Range": `bytes ${start}-${end}/${fileSize}`,
+          "Accept-Ranges": "bytes",
+          "Content-Length": String(chunkSize),
+          "Content-Type": contentType,
+        },
+      })
+    }
+  }
+
+  const nodeStream = createReadStream(filepath)
+  const webStream = Readable.toWeb(nodeStream) as ReadableStream
+
+  return new NextResponse(webStream, {
+    headers: {
+      "Content-Type": contentType,
+      "Accept-Ranges": "bytes",
+      "Content-Length": String(fileSize),
+    },
   })
 }

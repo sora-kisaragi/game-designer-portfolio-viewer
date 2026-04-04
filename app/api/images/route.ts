@@ -62,7 +62,8 @@ export async function POST(request: Request) {
     const bytes = await file.arrayBuffer()
     await writeFile(filepath, Buffer.from(bytes))
 
-    const image = addImage(title, filename)
+    const mediaType = file.type.startsWith("video/") ? "video" : "image"
+    const image = addImage(title, filename, mediaType)
     return NextResponse.json(image, { status: 201 })
   } catch (err) {
     console.error("[api] POST /api/images error:", err)

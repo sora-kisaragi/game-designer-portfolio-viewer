@@ -9,6 +9,7 @@ export interface ImageRecord {
   sort_order: number
   created_at: string
   url: string
+  media_type: "image" | "video"
 }
 
 const DB_PATH =
@@ -26,6 +27,11 @@ function getDb() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `)
+  // Migration: add media_type column for existing databases
+  const cols = db.prepare("PRAGMA table_info(images)").all() as { name: string }[]
+  if (!cols.some((c) => c.name === "media_type")) {
+    db.exec("ALTER TABLE images ADD COLUMN media_type TEXT NOT NULL DEFAULT 'image'")
+  }
   return db
 }
 
@@ -51,7 +57,11 @@ export function getImageById(id: number): ImageRecord | undefined {
   return row ? toRecord(row) : undefined
 }
 
-export function addImage(title: string, filename: string): ImageRecord {
+export function addImage(
+  title: string,
+  filename: string,
+  mediaType: "image" | "video" = "image"
+): ImageRecord {
   const db = getDb()
   const maxRow = db
     .prepare("SELECT COALESCE(MAX(sort_order), -1) AS max FROM images")
@@ -59,9 +69,9 @@ export function addImage(title: string, filename: string): ImageRecord {
   const sort_order = maxRow.max + 1
   const result = db
     .prepare(
-      "INSERT INTO images (filename, title, sort_order) VALUES (?, ?, ?)"
+      "INSERT INTO images (filename, title, sort_order, media_type) VALUES (?, ?, ?, ?)"
     )
-    .run(filename, title, sort_order)
+    .run(filename, title, sort_order, mediaType)
   const row = db
     .prepare("SELECT * FROM images WHERE id = ?")
     .get(result.lastInsertRowid) as Omit<ImageRecord, "url">

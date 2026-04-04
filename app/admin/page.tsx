@@ -26,6 +26,7 @@ interface PortfolioImage {
   title: string
   url: string
   filename?: string
+  media_type?: "image" | "video"
 }
 
 interface QueueItem {
@@ -33,6 +34,7 @@ interface QueueItem {
   file: File
   preview: string
   title: string
+  mediaType: "image" | "video"
 }
 
 const MOCK_IMAGES: PortfolioImage[] = [
@@ -105,13 +107,19 @@ function SortableImageRow({
 
       {/* Thumbnail */}
       <div className="relative shrink-0 w-20 h-[45px] rounded overflow-hidden bg-white/10">
-        <Image src={img.url} alt={img.title} fill className="object-cover" sizes="80px" />
+        {img.media_type === "video" ? (
+          <video src={img.url} className="w-full h-full object-cover" muted playsInline preload="metadata" />
+        ) : (
+          <Image src={img.url} alt={img.title} fill className="object-cover" sizes="80px" />
+        )}
       </div>
 
       {/* Info */}
       <div className="flex-1 min-w-0">
         <p className="text-sm text-white truncate">{img.title}</p>
-        <p className="text-xs text-white/30 font-mono truncate mt-0.5">ID: {img.id}</p>
+        <p className="text-xs text-white/30 font-mono truncate mt-0.5">
+          {img.media_type === "video" ? "VIDEO · " : ""}ID: {img.id}
+        </p>
       </div>
 
       {/* Delete */}
@@ -156,13 +164,14 @@ export default function AdminPage() {
   // ── Queue management ──────────────────────────────────────────────────────
 
   const addFilesToQueue = useCallback((files: File[]) => {
-    const imageFiles = files.filter((f) => f.type.startsWith("image/"))
-    if (imageFiles.length === 0) return
-    const items: QueueItem[] = imageFiles.map((f) => ({
+    const mediaFiles = files.filter((f) => f.type.startsWith("image/") || f.type.startsWith("video/"))
+    if (mediaFiles.length === 0) return
+    const items: QueueItem[] = mediaFiles.map((f) => ({
       key: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
       file: f,
       preview: URL.createObjectURL(f),
       title: f.name.replace(/\.[^.]+$/, ""),
+      mediaType: f.type.startsWith("video/") ? "video" : "image",
     }))
     setQueue((prev) => [...prev, ...items])
   }, [])
@@ -371,16 +380,16 @@ export default function AdminPage() {
                 {isDragOver ? "Drop to add" : "Drop images here, or click to select"}
               </span>
               <span className="text-xs text-white/25">
-                PNG, JPG, WEBP — multiple files supported
+                PNG, JPG, WEBP, MP4, WEBM — multiple files supported
               </span>
             </div>
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/*"
+              accept="image/*,video/*"
               multiple
               className="hidden"
-              aria-label="Select image files"
+              aria-label="Select image or video files"
               onChange={handleFileChange}
             />
           </div>
@@ -398,13 +407,11 @@ export default function AdminPage() {
                   className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-lg p-3"
                 >
                   <div className="relative shrink-0 w-20 h-[45px] rounded overflow-hidden bg-white/10">
-                    <Image
-                      src={item.preview}
-                      alt={item.file.name}
-                      fill
-                      className="object-cover"
-                      sizes="80px"
-                    />
+                    {item.mediaType === "video" ? (
+                      <video src={item.preview} className="w-full h-full object-cover" muted playsInline preload="metadata" />
+                    ) : (
+                      <Image src={item.preview} alt={item.file.name} fill className="object-cover" sizes="80px" />
+                    )}
                   </div>
                   <div className="flex-1 min-w-0 space-y-1">
                     <input
