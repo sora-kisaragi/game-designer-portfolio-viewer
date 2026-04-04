@@ -24,32 +24,9 @@ const MOCK_IMAGES: PortfolioImage[] = [
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 type FlipDirection = "forward" | "backward" | null
-type TransitionType = "flip" | "slide" | "fade" | "zoom" | "stack" | "wipe" | "blur"
 type IndicatorStyle = "zeroPad" | "bar" | "dotsNum"
 
 const INDICATOR_STYLES: IndicatorStyle[] = ["zeroPad", "bar", "dotsNum"]
-
-const TRANSITIONS: { type: TransitionType; label: string }[] = [
-  { type: "flip",  label: "Flip"  },
-  { type: "slide", label: "Slide" },
-  { type: "fade",  label: "Fade"  },
-  { type: "zoom",  label: "Zoom"  },
-  { type: "stack", label: "Stack" },
-  { type: "wipe",  label: "Wipe"  },
-  { type: "blur",  label: "Blur"  },
-]
-
-function getAnimNames(type: TransitionType, dir: "forward" | "backward"): { out: string; in: string } {
-  switch (type) {
-    case "flip":  return dir === "forward" ? { out: "pageFlipOut", in: "pageFlipIn" } : { out: "pageFlipOutReverse", in: "pageFlipInReverse" }
-    case "slide": return dir === "forward" ? { out: "slideOutLeft", in: "slideInRight" } : { out: "slideOutRight", in: "slideInLeft" }
-    case "fade":  return { out: "fadeOut",     in: "fadeIn"     }
-    case "zoom":  return { out: "zoomFadeOut", in: "zoomFadeIn" }
-    case "stack": return { out: "stackOut",    in: "stackIn"    }
-    case "wipe":  return dir === "forward" ? { out: "wipeOut", in: "wipeIn" } : { out: "wipeOutReverse", in: "wipeInReverse" }
-    case "blur":  return { out: "blurFadeOut", in: "blurFadeIn" }
-  }
-}
 
 export default function PortfolioViewer() {
   const { data } = useSWR<PortfolioImage[]>("/api/images", fetcher, {
@@ -62,12 +39,12 @@ export default function PortfolioViewer() {
   const [pendingIndex, setPendingIndex] = useState<number | null>(null)
   const [isZoomMode, setIsZoomMode] = useState(false)
   const [isMuted, setIsMuted] = useState(true)
-  const [transitionType, setTransitionType] = useState<TransitionType>("flip")
   const [indicatorStyle, setIndicatorStyle] = useState<IndicatorStyle>("zeroPad")
   const touchStartX = useRef<number | null>(null)
   const touchStartY = useRef<number | null>(null)
   const isAnimating = useRef(false)
   const containerRef = useRef<HTMLDivElement>(null)
+  const progressFillRef = useRef<HTMLDivElement>(null)
 
   const toggleZoomMode = useCallback(() => {
     setIsZoomMode((prev) => {
@@ -84,6 +61,13 @@ export default function PortfolioViewer() {
       return next
     })
   }, [])
+
+  useEffect(() => {
+    progressFillRef.current?.style.setProperty(
+      "--bar-progress",
+      `${((current + 1) / images.length) * 100}%`
+    )
+  }, [current, images.length])
 
   const goTo = useCallback(
     (index: number, direction: FlipDirection) => {
@@ -159,19 +143,15 @@ export default function PortfolioViewer() {
       onClick={isZoomMode ? undefined : handleClick}
       style={{ touchAction: isZoomMode ? "auto" : "none" }}
     >
-      {/* Page flip scene */}
-      <div className="relative w-full h-full flex items-center justify-center" style={{ perspective: transitionType === "flip" ? "1200px" : undefined }}>
+      {/* Slide scene */}
+      <div className="relative w-full h-full flex items-center justify-center">
         {/* Letterboxed image stage */}
         <div className="relative w-full h-full flex items-center justify-center">
           {/* Current page */}
           <div
-            className="absolute inset-0 flex items-center justify-center"
-            style={{
-              transformStyle: transitionType === "flip" ? "preserve-3d" : undefined,
-              animation: flipping
-                ? `${getAnimNames(transitionType, flipping).out} 0.6s cubic-bezier(0.4,0,0.2,1) forwards`
-                : undefined,
-            }}
+            className={`absolute inset-0 flex items-center justify-center ${
+              flipping === "forward" ? "slide-out-left" : flipping === "backward" ? "slide-out-right" : ""
+            }`}
           >
             <PageImage image={displayedImage} isMuted={isMuted} />
           </div>
@@ -179,13 +159,9 @@ export default function PortfolioViewer() {
           {/* Incoming page */}
           {pendingImage && (
             <div
-              className="absolute inset-0 flex items-center justify-center"
-              style={{
-                transformStyle: transitionType === "flip" ? "preserve-3d" : undefined,
-                animation: flipping
-                  ? `${getAnimNames(transitionType, flipping).in} 0.6s cubic-bezier(0.4,0,0.2,1) forwards`
-                  : undefined,
-              }}
+              className={`absolute inset-0 flex items-center justify-center ${
+                flipping === "forward" ? "slide-in-right" : "slide-in-left"
+              }`}
             >
               <PageImage image={pendingImage} isMuted={true} />
             </div>
@@ -222,10 +198,7 @@ export default function PortfolioViewer() {
           )}
           {indicatorStyle === "bar" && (
             <div className="w-20 h-0.5 bg-white/20 rounded-full overflow-hidden">
-              <div
-                className="progress-bar-fill h-full bg-white/60 rounded-full"
-                style={{ "--bar-progress": `${((current + 1) / images.length) * 100}%` } as React.CSSProperties}
-              />
+              <div ref={progressFillRef} className="progress-bar-fill h-full bg-white/60 rounded-full" />
             </div>
           )}
           {indicatorStyle === "dotsNum" && (
