@@ -173,6 +173,14 @@
 @keyframes blurFadeOut { 0% { opacity: 1; filter: blur(0px); } 100% { opacity: 0; filter: blur(16px); } }
 @keyframes blurFadeIn  { 0% { opacity: 0; filter: blur(16px); } 100% { opacity: 1; filter: blur(0px); } }
 
+/* 16:9 letterbox stage */
+.letterbox-stage {
+  width: min(100vw, calc(100vh * 16 / 9));
+  height: min(100vh, calc(100vw * 9 / 16));
+  max-width: 100vw;
+  max-height: 100vh;
+}
+
 /* Progress bar indicator */
 .progress-bar-fill {
   width: var(--bar-progress, 0%);

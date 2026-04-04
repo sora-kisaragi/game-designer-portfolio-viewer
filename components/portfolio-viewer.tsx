@@ -253,7 +253,7 @@ export default function PortfolioViewer() {
           const idx = TRANSITIONS.findIndex(t => t.type === transitionType)
           setTransitionType(TRANSITIONS[(idx + 1) % TRANSITIONS.length].type)
         }}
-        className="absolute bottom-6 right-4 z-20 bg-black/50 hover:bg-black/70 text-white text-xs px-3 py-1.5 rounded-full backdrop-blur-sm transition-colors"
+        className="absolute bottom-4 right-4 z-20 bg-black/50 hover:bg-black/70 text-white text-xs px-3 py-1.5 rounded-full backdrop-blur-sm transition-colors"
       >
         ✦ {TRANSITIONS.find(t => t.type === transitionType)?.label}
       </button>
@@ -296,20 +296,6 @@ export default function PortfolioViewer() {
         </button>
       </div>
 
-      {/* Dot indicators */}
-      <div className="absolute bottom-14 left-1/2 -translate-x-1/2 z-20 flex gap-1.5 pointer-events-none">
-        {images.map((_, i) => (
-          <div
-            key={i}
-            className="rounded-full transition-all duration-300"
-            style={{
-              width: i === current ? "20px" : "6px",
-              height: "6px",
-              backgroundColor: i === current ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.25)",
-            }}
-          />
-        ))}
-      </div>
     </div>
   )
 }
@@ -318,15 +304,7 @@ function PageImage({ image, isMuted }: { image: PortfolioImage; isMuted: boolean
   return (
     <div className="relative w-full h-full flex items-center justify-center">
       {/* 16:9 letterbox container */}
-      <div
-        className="relative overflow-hidden"
-        style={{
-          width: "min(100vw, calc(100vh * 16/9))",
-          height: "min(100vh, calc(100vw * 9/16))",
-          maxWidth: "100vw",
-          maxHeight: "100vh",
-        }}
-      >
+      <div className="relative overflow-hidden letterbox-stage">
         {image.media_type === "video" ? (
           <video
             key={image.url}
