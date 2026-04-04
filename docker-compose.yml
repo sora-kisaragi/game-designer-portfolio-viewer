@@ -2,10 +2,11 @@ services:
   app:
     build: .
     ports:
-      - "3010:3000"
+      - "3010:3010"
     volumes:
       - ./data:/app/data
     environment:
+      - PORT=3010
       - DB_PATH=/app/data/portfolio.db
       - UPLOAD_DIR=/app/data/uploads
       - BASIC_AUTH_USER=${BASIC_AUTH_USER}
@@ -20,3 +21,5 @@ services:
     depends_on:
       - app
     restart: unless-stopped
+    profiles:
+      - tunnel

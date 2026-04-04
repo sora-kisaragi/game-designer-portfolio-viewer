@@ -3,12 +3,13 @@
 import { useState, useRef, useCallback, useEffect } from "react"
 import Image from "next/image"
 import useSWR from "swr"
-import { ZoomIn, ArrowLeftRight } from "lucide-react"
+import { ZoomIn, ArrowLeftRight, Volume2, VolumeX } from "lucide-react"
 
 interface PortfolioImage {
   id: number
   title: string
   url: string
+  media_type?: "image" | "video"
 }
 
 const MOCK_IMAGES: PortfolioImage[] = [
@@ -34,6 +35,7 @@ export default function PortfolioViewer() {
   const [flipping, setFlipping] = useState<FlipDirection>(null)
   const [pendingIndex, setPendingIndex] = useState<number | null>(null)
   const [isZoomMode, setIsZoomMode] = useState(false)
+  const [isMuted, setIsMuted] = useState(true)
   const touchStartX = useRef<number | null>(null)
   const touchStartY = useRef<number | null>(null)
   const isAnimating = useRef(false)
@@ -70,6 +72,7 @@ export default function PortfolioViewer() {
         setFlipping(null)
         setPendingIndex(null)
         isAnimating.current = false
+        setIsMuted(true)
       }, 600)
     },
     [current, images.length]
@@ -142,7 +145,7 @@ export default function PortfolioViewer() {
                 : undefined,
             }}
           >
-            <PageImage image={displayedImage} />
+            <PageImage image={displayedImage} isMuted={isMuted} />
           </div>
 
           {/* Incoming page */}
@@ -156,7 +159,7 @@ export default function PortfolioViewer() {
                   : undefined,
               }}
             >
-              <PageImage image={pendingImage} />
+              <PageImage image={pendingImage} isMuted={true} />
             </div>
           )}
         </div>
@@ -190,6 +193,21 @@ export default function PortfolioViewer() {
           </div>
         )}
       </div>
+
+      {/* Mute / Unmute (video only) */}
+      {displayedImage.media_type === "video" && (
+        <div className="absolute bottom-4 left-4 z-30">
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setIsMuted((v) => !v) }}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-full bg-black/50 backdrop-blur-sm border border-white/10 text-white/60 hover:text-white/90 transition-colors"
+            aria-label={isMuted ? "ミュート解除" : "ミュート"}
+          >
+            {isMuted ? <VolumeX size={13} /> : <Volume2 size={13} />}
+            <span className="text-xs font-mono">{isMuted ? "Muted" : "Sound"}</span>
+          </button>
+        </div>
+      )}
 
       {/* Zoom / Navigate toggle */}
       <div className="absolute top-4 right-4 z-30">
@@ -226,7 +244,7 @@ export default function PortfolioViewer() {
   )
 }
 
-function PageImage({ image }: { image: PortfolioImage }) {
+function PageImage({ image, isMuted }: { image: PortfolioImage; isMuted: boolean }) {
   return (
     <div className="relative w-full h-full flex items-center justify-center">
       {/* 16:9 letterbox container */}
@@ -239,15 +257,26 @@ function PageImage({ image }: { image: PortfolioImage }) {
           maxHeight: "100vh",
         }}
       >
-        <Image
-          src={image.url}
-          alt={image.title}
-          fill
-          className="object-cover"
-          priority
-          sizes="100vw"
-        />
-
+        {image.media_type === "video" ? (
+          <video
+            key={image.url}
+            src={image.url}
+            autoPlay
+            muted={isMuted}
+            playsInline
+            loop
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+        ) : (
+          <Image
+            src={image.url}
+            alt={image.title}
+            fill
+            className="object-cover"
+            priority
+            sizes="100vw"
+          />
+        )}
       </div>
     </div>
   )
