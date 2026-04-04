@@ -219,19 +219,8 @@ export default function PortfolioViewer() {
         </button>
       </div>
 
-      {/* Transition type cycle button */}
-      <button
-        type="button"
-        onClick={() => {
-          const idx = TRANSITIONS.findIndex(t => t.type === transitionType)
-          setTransitionType(TRANSITIONS[(idx + 1) % TRANSITIONS.length].type)
-        }}
-        className="absolute bottom-4 right-4 z-20 bg-black/50 hover:bg-black/70 text-white text-xs px-3 py-1.5 rounded-full backdrop-blur-sm transition-colors"
-      >
-        ✦ {TRANSITIONS.find(t => t.type === transitionType)?.label}
-      </button>
 
-      {/* Tap zone hints (subtle arrows, only when hoverable) */}
+{/* Tap zone hints (subtle arrows, only when hoverable) */}
       <div className="absolute left-0 top-0 h-full w-[30%] flex items-center justify-start pl-4 opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none z-10">
         {current > 0 && (
           <div className="w-10 h-10 rounded-full bg-black/30 backdrop-blur-sm border border-white/10 flex items-center justify-center">
