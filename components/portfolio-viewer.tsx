@@ -24,6 +24,29 @@ const MOCK_IMAGES: PortfolioImage[] = [
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 type FlipDirection = "forward" | "backward" | null
+type TransitionType = "flip" | "slide" | "fade" | "zoom" | "stack" | "wipe" | "blur"
+
+const TRANSITIONS: { type: TransitionType; label: string }[] = [
+  { type: "flip",  label: "Flip"  },
+  { type: "slide", label: "Slide" },
+  { type: "fade",  label: "Fade"  },
+  { type: "zoom",  label: "Zoom"  },
+  { type: "stack", label: "Stack" },
+  { type: "wipe",  label: "Wipe"  },
+  { type: "blur",  label: "Blur"  },
+]
+
+function getAnimNames(type: TransitionType, dir: "forward" | "backward"): { out: string; in: string } {
+  switch (type) {
+    case "flip":  return dir === "forward" ? { out: "pageFlipOut", in: "pageFlipIn" } : { out: "pageFlipOutReverse", in: "pageFlipInReverse" }
+    case "slide": return dir === "forward" ? { out: "slideOutLeft", in: "slideInRight" } : { out: "slideOutRight", in: "slideInLeft" }
+    case "fade":  return { out: "fadeOut",     in: "fadeIn"     }
+    case "zoom":  return { out: "zoomFadeOut", in: "zoomFadeIn" }
+    case "stack": return { out: "stackOut",    in: "stackIn"    }
+    case "wipe":  return dir === "forward" ? { out: "wipeOut", in: "wipeIn" } : { out: "wipeOutReverse", in: "wipeInReverse" }
+    case "blur":  return { out: "blurFadeOut", in: "blurFadeIn" }
+  }
+}
 
 export default function PortfolioViewer() {
   const { data } = useSWR<PortfolioImage[]>("/api/images", fetcher, {
@@ -36,6 +59,7 @@ export default function PortfolioViewer() {
   const [pendingIndex, setPendingIndex] = useState<number | null>(null)
   const [isZoomMode, setIsZoomMode] = useState(false)
   const [isMuted, setIsMuted] = useState(true)
+  const [transitionType, setTransitionType] = useState<TransitionType>("flip")
   const touchStartX = useRef<number | null>(null)
   const touchStartY = useRef<number | null>(null)
   const isAnimating = useRef(false)
@@ -132,16 +156,16 @@ export default function PortfolioViewer() {
       style={{ touchAction: isZoomMode ? "auto" : "none" }}
     >
       {/* Page flip scene */}
-      <div className="relative w-full h-full flex items-center justify-center" style={{ perspective: "1200px" }}>
+      <div className="relative w-full h-full flex items-center justify-center" style={{ perspective: transitionType === "flip" ? "1200px" : undefined }}>
         {/* Letterboxed image stage */}
         <div className="relative w-full h-full flex items-center justify-center">
           {/* Current page */}
           <div
             className="absolute inset-0 flex items-center justify-center"
             style={{
-              transformStyle: "preserve-3d",
+              transformStyle: transitionType === "flip" ? "preserve-3d" : undefined,
               animation: flipping
-                ? `${flipping === "forward" ? "pageFlipOut" : "pageFlipOutReverse"} 0.6s cubic-bezier(0.4,0,0.2,1) forwards`
+                ? `${getAnimNames(transitionType, flipping).out} 0.6s cubic-bezier(0.4,0,0.2,1) forwards`
                 : undefined,
             }}
           >
@@ -153,9 +177,9 @@ export default function PortfolioViewer() {
             <div
               className="absolute inset-0 flex items-center justify-center"
               style={{
-                transformStyle: "preserve-3d",
+                transformStyle: transitionType === "flip" ? "preserve-3d" : undefined,
                 animation: flipping
-                  ? `${flipping === "forward" ? "pageFlipIn" : "pageFlipInReverse"} 0.6s cubic-bezier(0.4,0,0.2,1) forwards`
+                  ? `${getAnimNames(transitionType, flipping).in} 0.6s cubic-bezier(0.4,0,0.2,1) forwards`
                   : undefined,
               }}
             >
@@ -173,6 +197,18 @@ export default function PortfolioViewer() {
           </span>
         </div>
       </div>
+
+      {/* Transition type cycle button */}
+      <button
+        type="button"
+        onClick={() => {
+          const idx = TRANSITIONS.findIndex(t => t.type === transitionType)
+          setTransitionType(TRANSITIONS[(idx + 1) % TRANSITIONS.length].type)
+        }}
+        className="absolute bottom-6 right-4 z-20 bg-black/50 hover:bg-black/70 text-white text-xs px-3 py-1.5 rounded-full backdrop-blur-sm transition-colors"
+      >
+        ✦ {TRANSITIONS.find(t => t.type === transitionType)?.label}
+      </button>
 
       {/* Tap zone hints (subtle arrows, only when hoverable) */}
       <div className="absolute left-0 top-0 h-full w-[30%] flex items-center justify-start pl-4 opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none z-10">
