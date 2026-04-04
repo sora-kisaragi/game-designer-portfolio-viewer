@@ -14,16 +14,11 @@ services:
 
   cloudflared:
     image: cloudflare/cloudflared:latest
-    entrypoint: >
-      sh -c '
-        if [ -z "$$TUNNEL_TOKEN" ] || [ "$$TUNNEL_TOKEN" = "your_token_here" ]; then
-          echo "CLOUDFLARE_TUNNEL_TOKEN not configured, tunnel disabled."
-          exit 0
-        fi
-        exec cloudflared tunnel --no-autoupdate run
-      '
+    command: tunnel --no-autoupdate run
     environment:
       - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
     depends_on:
       - app
-    restart: on-failure
+    restart: unless-stopped
+    profiles:
+      - tunnel
