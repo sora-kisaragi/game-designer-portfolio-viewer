@@ -189,8 +189,19 @@ export default function PortfolioViewer() {
         </div>
       </div>
 
-      {/* Page indicator */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
+      {/* Bottom-left group: mute + page indicator */}
+      <div className="absolute bottom-4 left-4 z-30 flex flex-col items-start gap-2 pointer-events-none">
+        {displayedImage.media_type === "video" && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setIsMuted((v) => !v) }}
+            className="pointer-events-auto flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/50 backdrop-blur-sm border border-white/10 text-white/60 hover:text-white/90 transition-colors"
+            aria-label={isMuted ? "ミュート解除" : "ミュート"}
+          >
+            {isMuted ? <VolumeX size={13} /> : <Volume2 size={13} />}
+            <span className="text-xs font-mono">{isMuted ? "Muted" : "Sound"}</span>
+          </button>
+        )}
         <div className="px-4 py-1.5 rounded-full bg-black/50 backdrop-blur-sm border border-white/10">
           <span className="text-white/70 text-sm font-mono tracking-widest">
             {current + 1} / {images.length}
@@ -230,20 +241,6 @@ export default function PortfolioViewer() {
         )}
       </div>
 
-      {/* Mute / Unmute (video only) */}
-      {displayedImage.media_type === "video" && (
-        <div className="absolute bottom-4 left-4 z-30">
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); setIsMuted((v) => !v) }}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-full bg-black/50 backdrop-blur-sm border border-white/10 text-white/60 hover:text-white/90 transition-colors"
-            aria-label={isMuted ? "ミュート解除" : "ミュート"}
-          >
-            {isMuted ? <VolumeX size={13} /> : <Volume2 size={13} />}
-            <span className="text-xs font-mono">{isMuted ? "Muted" : "Sound"}</span>
-          </button>
-        </div>
-      )}
 
       {/* Zoom / Navigate toggle */}
       <div className="absolute top-4 right-4 z-30">
