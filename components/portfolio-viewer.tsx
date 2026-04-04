@@ -24,6 +24,9 @@ const MOCK_IMAGES: PortfolioImage[] = [
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 type FlipDirection = "forward" | "backward" | null
+type IndicatorStyle = "zeroPad" | "bar" | "dotsNum"
+
+const INDICATOR_STYLES: IndicatorStyle[] = ["zeroPad", "bar", "dotsNum"]
 
 export default function PortfolioViewer() {
   const { data } = useSWR<PortfolioImage[]>("/api/images", fetcher, {
@@ -36,10 +39,12 @@ export default function PortfolioViewer() {
   const [pendingIndex, setPendingIndex] = useState<number | null>(null)
   const [isZoomMode, setIsZoomMode] = useState(false)
   const [isMuted, setIsMuted] = useState(true)
+  const [indicatorStyle, setIndicatorStyle] = useState<IndicatorStyle>("zeroPad")
   const touchStartX = useRef<number | null>(null)
   const touchStartY = useRef<number | null>(null)
   const isAnimating = useRef(false)
   const containerRef = useRef<HTMLDivElement>(null)
+  const progressFillRef = useRef<HTMLDivElement>(null)
 
   const toggleZoomMode = useCallback(() => {
     setIsZoomMode((prev) => {
@@ -56,6 +61,13 @@ export default function PortfolioViewer() {
       return next
     })
   }, [])
+
+  useEffect(() => {
+    progressFillRef.current?.style.setProperty(
+      "--bar-progress",
+      `${((current + 1) / images.length) * 100}%`
+    )
+  }, [current, images.length])
 
   const goTo = useCallback(
     (index: number, direction: FlipDirection) => {
@@ -131,19 +143,15 @@ export default function PortfolioViewer() {
       onClick={isZoomMode ? undefined : handleClick}
       style={{ touchAction: isZoomMode ? "auto" : "none" }}
     >
-      {/* Page flip scene */}
-      <div className="relative w-full h-full flex items-center justify-center" style={{ perspective: "1200px" }}>
+      {/* Slide scene */}
+      <div className="relative w-full h-full flex items-center justify-center">
         {/* Letterboxed image stage */}
         <div className="relative w-full h-full flex items-center justify-center">
           {/* Current page */}
           <div
-            className="absolute inset-0 flex items-center justify-center"
-            style={{
-              transformStyle: "preserve-3d",
-              animation: flipping
-                ? `${flipping === "forward" ? "pageFlipOut" : "pageFlipOutReverse"} 0.6s cubic-bezier(0.4,0,0.2,1) forwards`
-                : undefined,
-            }}
+            className={`absolute inset-0 flex items-center justify-center ${
+              flipping === "forward" ? "slide-out-left" : flipping === "backward" ? "slide-out-right" : ""
+            }`}
           >
             <PageImage image={displayedImage} isMuted={isMuted} />
           </div>
@@ -151,13 +159,9 @@ export default function PortfolioViewer() {
           {/* Incoming page */}
           {pendingImage && (
             <div
-              className="absolute inset-0 flex items-center justify-center"
-              style={{
-                transformStyle: "preserve-3d",
-                animation: flipping
-                  ? `${flipping === "forward" ? "pageFlipIn" : "pageFlipInReverse"} 0.6s cubic-bezier(0.4,0,0.2,1) forwards`
-                  : undefined,
-              }}
+              className={`absolute inset-0 flex items-center justify-center ${
+                flipping === "forward" ? "slide-in-right" : "slide-in-left"
+              }`}
             >
               <PageImage image={pendingImage} isMuted={true} />
             </div>
@@ -165,16 +169,58 @@ export default function PortfolioViewer() {
         </div>
       </div>
 
-      {/* Page indicator */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
-        <div className="px-4 py-1.5 rounded-full bg-black/50 backdrop-blur-sm border border-white/10">
-          <span className="text-white/70 text-sm font-mono tracking-widest">
-            {current + 1} / {images.length}
-          </span>
-        </div>
+      {/* Bottom-left group: mute + page indicator */}
+      <div className="absolute bottom-4 left-4 z-30 flex flex-col items-start gap-2 pointer-events-none">
+        {displayedImage.media_type === "video" && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setIsMuted((v) => !v) }}
+            className="pointer-events-auto flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/50 backdrop-blur-sm border border-white/10 text-white/60 hover:text-white/90 transition-colors"
+            aria-label={isMuted ? "ミュート解除" : "ミュート"}
+          >
+            {isMuted ? <VolumeX size={13} /> : <Volume2 size={13} />}
+            <span className="text-xs font-mono">{isMuted ? "Muted" : "Sound"}</span>
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            const idx = INDICATOR_STYLES.indexOf(indicatorStyle)
+            setIndicatorStyle(INDICATOR_STYLES[(idx + 1) % INDICATOR_STYLES.length])
+          }}
+          className="pointer-events-auto px-4 py-1.5 rounded-full bg-black/50 backdrop-blur-sm border border-white/10"
+        >
+          {indicatorStyle === "zeroPad" && (
+            <span className="text-white/70 text-sm font-mono tracking-widest">
+              {String(current + 1).padStart(2, "0")} / {String(images.length).padStart(2, "0")}
+            </span>
+          )}
+          {indicatorStyle === "bar" && (
+            <div className="w-20 h-0.5 bg-white/20 rounded-full overflow-hidden">
+              <div ref={progressFillRef} className="progress-bar-fill h-full bg-white/60 rounded-full" />
+            </div>
+          )}
+          {indicatorStyle === "dotsNum" && (
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
+                {images.map((_, i) => (
+                  <div
+                    key={i}
+                    className={`rounded-full transition-all duration-200 ${
+                      i === current ? "w-1.5 h-1.5 bg-white/80" : "w-1 h-1 bg-white/25"
+                    }`}
+                  />
+                ))}
+              </div>
+              <span className="text-white/50 text-xs font-mono">{current + 1} / {images.length}</span>
+            </div>
+          )}
+        </button>
       </div>
 
-      {/* Tap zone hints (subtle arrows, only when hoverable) */}
+
+{/* Tap zone hints (subtle arrows, only when hoverable) */}
       <div className="absolute left-0 top-0 h-full w-[30%] flex items-center justify-start pl-4 opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none z-10">
         {current > 0 && (
           <div className="w-10 h-10 rounded-full bg-black/30 backdrop-blur-sm border border-white/10 flex items-center justify-center">
@@ -194,20 +240,6 @@ export default function PortfolioViewer() {
         )}
       </div>
 
-      {/* Mute / Unmute (video only) */}
-      {displayedImage.media_type === "video" && (
-        <div className="absolute bottom-4 left-4 z-30">
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); setIsMuted((v) => !v) }}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-full bg-black/50 backdrop-blur-sm border border-white/10 text-white/60 hover:text-white/90 transition-colors"
-            aria-label={isMuted ? "ミュート解除" : "ミュート"}
-          >
-            {isMuted ? <VolumeX size={13} /> : <Volume2 size={13} />}
-            <span className="text-xs font-mono">{isMuted ? "Muted" : "Sound"}</span>
-          </button>
-        </div>
-      )}
 
       {/* Zoom / Navigate toggle */}
       <div className="absolute top-4 right-4 z-30">
@@ -226,20 +258,6 @@ export default function PortfolioViewer() {
         </button>
       </div>
 
-      {/* Dot indicators */}
-      <div className="absolute bottom-14 left-1/2 -translate-x-1/2 z-20 flex gap-1.5 pointer-events-none">
-        {images.map((_, i) => (
-          <div
-            key={i}
-            className="rounded-full transition-all duration-300"
-            style={{
-              width: i === current ? "20px" : "6px",
-              height: "6px",
-              backgroundColor: i === current ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.25)",
-            }}
-          />
-        ))}
-      </div>
     </div>
   )
 }
@@ -248,15 +266,7 @@ function PageImage({ image, isMuted }: { image: PortfolioImage; isMuted: boolean
   return (
     <div className="relative w-full h-full flex items-center justify-center">
       {/* 16:9 letterbox container */}
-      <div
-        className="relative overflow-hidden"
-        style={{
-          width: "min(100vw, calc(100vh * 16/9))",
-          height: "min(100vh, calc(100vw * 9/16))",
-          maxWidth: "100vw",
-          maxHeight: "100vh",
-        }}
-      >
+      <div className="relative overflow-hidden letterbox-stage">
         {image.media_type === "video" ? (
           <video
             key={image.url}
