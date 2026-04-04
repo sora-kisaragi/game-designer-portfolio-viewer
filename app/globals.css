@@ -172,3 +172,9 @@
 /* Blur Fade */
 @keyframes blurFadeOut { 0% { opacity: 1; filter: blur(0px); } 100% { opacity: 0; filter: blur(16px); } }
 @keyframes blurFadeIn  { 0% { opacity: 0; filter: blur(16px); } 100% { opacity: 1; filter: blur(0px); } }
+
+/* Progress bar indicator */
+.progress-bar-fill {
+  width: var(--bar-progress, 0%);
+  transition: width 300ms ease;
+}

@@ -25,6 +25,9 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 type FlipDirection = "forward" | "backward" | null
 type TransitionType = "flip" | "slide" | "fade" | "zoom" | "stack" | "wipe" | "blur"
+type IndicatorStyle = "zeroPad" | "bar" | "dotsNum"
+
+const INDICATOR_STYLES: IndicatorStyle[] = ["zeroPad", "bar", "dotsNum"]
 
 const TRANSITIONS: { type: TransitionType; label: string }[] = [
   { type: "flip",  label: "Flip"  },
@@ -60,6 +63,7 @@ export default function PortfolioViewer() {
   const [isZoomMode, setIsZoomMode] = useState(false)
   const [isMuted, setIsMuted] = useState(true)
   const [transitionType, setTransitionType] = useState<TransitionType>("flip")
+  const [indicatorStyle, setIndicatorStyle] = useState<IndicatorStyle>("zeroPad")
   const touchStartX = useRef<number | null>(null)
   const touchStartY = useRef<number | null>(null)
   const isAnimating = useRef(false)
@@ -202,11 +206,44 @@ export default function PortfolioViewer() {
             <span className="text-xs font-mono">{isMuted ? "Muted" : "Sound"}</span>
           </button>
         )}
-        <div className="px-4 py-1.5 rounded-full bg-black/50 backdrop-blur-sm border border-white/10">
-          <span className="text-white/70 text-sm font-mono tracking-widest">
-            {current + 1} / {images.length}
-          </span>
-        </div>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            const idx = INDICATOR_STYLES.indexOf(indicatorStyle)
+            setIndicatorStyle(INDICATOR_STYLES[(idx + 1) % INDICATOR_STYLES.length])
+          }}
+          className="pointer-events-auto px-4 py-1.5 rounded-full bg-black/50 backdrop-blur-sm border border-white/10"
+        >
+          {indicatorStyle === "zeroPad" && (
+            <span className="text-white/70 text-sm font-mono tracking-widest">
+              {String(current + 1).padStart(2, "0")} / {String(images.length).padStart(2, "0")}
+            </span>
+          )}
+          {indicatorStyle === "bar" && (
+            <div className="w-20 h-0.5 bg-white/20 rounded-full overflow-hidden">
+              <div
+                className="progress-bar-fill h-full bg-white/60 rounded-full"
+                style={{ "--bar-progress": `${((current + 1) / images.length) * 100}%` } as React.CSSProperties}
+              />
+            </div>
+          )}
+          {indicatorStyle === "dotsNum" && (
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
+                {images.map((_, i) => (
+                  <div
+                    key={i}
+                    className={`rounded-full transition-all duration-200 ${
+                      i === current ? "w-1.5 h-1.5 bg-white/80" : "w-1 h-1 bg-white/25"
+                    }`}
+                  />
+                ))}
+              </div>
+              <span className="text-white/50 text-xs font-mono">{current + 1} / {images.length}</span>
+            </div>
+          )}
+        </button>
       </div>
 
       {/* Transition type cycle button */}
